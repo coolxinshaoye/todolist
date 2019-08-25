@@ -1,0 +1,298 @@
+<!Doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Todo List</title>
+    <link rel="stylesheet" href="assets/css/base.css">
+    <link rel="stylesheet" href="assets/css/index.css">
+    <script src="js/jquery.min.js"></script>
+    <script src="./js/template-web.js"></script>
+</head>
+
+<body>
+    <section class="todoapp">
+        <header class="header">
+            <h1>todos</h1>
+            <input id="task" class="new-todo" placeholder="What needs to be done?" autofocus>
+        </header>
+        <!-- This section should be hidden by default and shown when there are todos -->
+        <section class="main">
+            <input class="toggle-all" type="checkbox">
+            <label for="toggle-all">Mark all as complete</label>
+            <ul class="todo-list" id="todoList">
+                <!-- These are here just to show the structure of the list items -->
+                <!-- List items should get the class `editing` when editing and `completed` when marked as completed -->
+                <!-- <li class="completed">
+                    <div class="view">
+                        <input class="toggle" type="checkbox" checked>
+                        <label>Taste JavaScript</label>
+                        <button class="destroy"></button>
+                    </div>
+                    <input class="edit" value="Create a TodoMVC template">
+                </li>
+                <li>
+                    <div class="view">
+                        <input class="toggle" type="checkbox">
+                        <label>Buy a unicorn</label>
+                        <button class="destroy"></button>
+                    </div>
+                    <input class="edit" value="Rule the web">
+                </li> -->
+            </ul>
+        </section>
+        <!-- This footer should hidden by default and shown when there are todos -->
+        <footer class="footer">
+            <!-- This should be `0 items left` by default -->
+            <span class="todo-count"><strong id="count">0</strong> item left</span>
+            <!-- Remove this if you don't implement routing -->
+            <ul class="filters">
+                <li>
+                    <a class="selected" href="avaScript:;" id="hx_all">All</a>
+                </li>
+                <li>
+                    <a href="JavaScript:;" id="hx_active">Active</a>
+                </li>
+                <li>
+                    <a href="JavaScript:;" id="hx_completed">Completed</a>
+                </li>
+            </ul>
+            <!-- Hidden if no completed items are left ↓ -->
+            <button class="clear-completed" id="hx_clear">Clear completed</button>
+        </footer>
+    </section>
+    <script type="text/html" id="taskTpl">
+        {{each task}}
+        <li class="{{$value.completed ? 'completed' : ''}}">
+            <div class="view">
+                <input class="toggle" type="checkbox" {{$value.completed ? 'checked' : ''}}>
+                <label>{{$value.title}}</label>
+                <button class="destroy" data-id="{{$value._id}}"></button>
+            </div>
+            <input class="edit" value="">
+        </li>
+        {{/each}}
+    </script>
+    <script>
+        // 添加任务的文本框
+        var taskInp = $('#task')
+            //选择任务列表的容器
+        var taskBox = $('#todoList')
+        var strong = $('#count');
+        var hx_completed = $('#hx_completed')
+        var hx_active = $('#hx_active')
+        var hx_all = $('#hx_all')
+        var hx_clearC = $('#hx_clear')
+            //定义一个空数组，基于数据驱动ui界面vue
+        var taskArr = [];
+        $.ajax({
+                type: 'GET',
+                url: '/todo/task',
+                success: function(res) {
+
+                    // 将返回的值，赋值给taskArr
+                    taskArr = res;
+                    // 调用template方法
+                    render(taskArr);
+                    cNum()
+                }
+            })
+            //添加任务
+
+        taskInp.on('keyup', function(e) {
+            if (e.keyCode == 13) {
+                var taskVal = $(this).val().replace(/\s/g, '');
+                if (taskVal.trim().length == 0) {
+                    alert('请输入内容')
+                    return;
+                }
+                var flag = taskArr.find(item => item.title == taskVal);
+
+
+                if (flag) {
+                    alert('该任务已存在，请重新输入');
+                    return;
+                }
+
+                $.ajax({
+                    type: 'POST',
+                    url: '/todo/addTask',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        title: taskVal
+                    }),
+                    success: function(response) {
+                        console.log(response);
+
+                        taskArr.push(response);
+                        console.log(taskArr);
+
+                        render(taskArr);
+                        taskInp.val('');
+                        cNum()
+
+
+                    }
+                })
+            }
+        })
+
+
+        //删除
+        // XXX.on('事件'，'获取触发事件按钮'，‘触发事件后’)
+        taskBox.on('click', '.destroy', function() {
+                var t = window.confirm('你真的忍心删除我吗？');
+                if (t == false) {
+                    return
+                }
+                var id = $(this).attr('data-id');
+                // 向服务器发起删除请求
+                $.ajax({
+                    type: 'GET',
+                    url: '/todo/deleteTask',
+                    data: {
+                        _id: id
+                    },
+                    success: function(res) {
+                        //从任务列表中找到已经删除掉的索引号
+                        var index = taskArr.findIndex(item => item._id == id);
+                        // console.log(index);
+                        //删除选中的任务
+                        //splice（从第几个开始，删除几个 ）
+                        taskArr.splice(index, 1);
+                        //重新渲染页面
+                        render(taskArr);
+                    }
+                })
+            })
+            // 用户改变用户名称前面的复选框状态时触发
+        taskBox.on('change', '.toggle', function() {
+                //当用户选中复选框时
+                const status = $(this).prop('checked')
+                    //点击当前任务的id
+                const id = $(this).siblings('button').attr('data-id');
+                // 点击后触发
+                $.ajax({
+                    type: 'POST',
+                    url: '/todo/modifyTask',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        _id: id,
+                        completed: status
+                    }),
+                    success: function(res) {
+                        //将任务状态同步到任务数组中
+                        var tast = taskArr.find(item => item._id == id);
+                        //更改任务状态
+                        tast.completed = res.completed;
+                        render(taskArr);
+                        cNum();
+                    }
+                })
+
+            })
+            //双击事件时触发
+        var oldText;
+        taskBox.on('dblclick', 'label', function() {
+                // console.log(111);
+                //让任务获取编辑状态
+                $(this).parents('li').addClass('editing');
+                //让任务名称显示在文本框中
+                oldText = $(this).text();
+                //当前元素的先祖的下一级（兄弟元素）input
+                $(this).parents().next().val(oldText);
+                //让文本框获取焦点
+                $(this).parents().next().focus();
+
+            })
+            //当文本框失去焦点后
+        taskBox.on('blur', '.edit', function() {
+                //最新的任务名称
+                var newTaskName = $(this).val().replace(/\s/g, '');
+                // 编辑任务的id
+                var id = $(this).siblings().find('button').attr('data-id')
+
+                if (oldText == newTaskName) return render(taskArr);
+                var flag = taskArr.find(item => item.title === newTaskName)
+                if (flag) {
+                    alert('该任务已存在1，请重新输入')
+                    return;
+                }
+                $.ajax({
+                    url: '/todo/modifyTask',
+                    type: 'post',
+                    data: JSON.stringify({
+                        _id: id,
+                        title: newTaskName
+                    }),
+                    contentType: 'application/json',
+                    success: function(res) {
+                        //将最新的数据同步到任务数组中
+                        var tast = taskArr.find(item => item._id == id);
+                        tast.title = res.title;
+                        console.log(tast.title);
+
+                        render(taskArr);
+                        cNum()
+
+
+                    }
+                })
+            })
+            // 全部项目
+        hx_all.on('click', function() {
+                render(taskArr)
+            })
+            //已经完成的项目
+        hx_completed.on('click', function() {
+                var newArr = taskArr.filter(item => item.completed == true);
+                // console.log(newArr);
+                render(newArr);
+            })
+            //未完成的项目
+        hx_active.on('click', function() {
+                var newArr = taskArr.filter(item => item.completed == false);
+                // console.log(newArr);
+                render(newArr);
+            })
+            //清空已完成的项目
+        hx_clearC.on('click', function() {
+                var newArr = taskArr.filter(item => item.completed == false);
+                $.ajax({
+                    url: '/todo/clearTask',
+                    type: 'GET',
+                    success: function() {
+                        render(newArr)
+                        console.log(newArr);
+
+                    }
+                })
+            })
+            //计算未完成的数量
+        function cNum() {
+            //存储结果的变量
+            var count = 0;
+            // 将未完成的任务过滤到新的数组中
+            var newArr = taskArr.filter(item => item.completed == false);
+            // console.log(newArr);
+
+            //将新数组的长度赋值给count
+            count = newArr.length;
+            // console.log(count);
+
+            //将未完成的数量显示在页面中
+            strong.text(count)
+        }
+
+        function render(taskArr) {
+            var str = template('taskTpl', {
+                task: taskArr
+            });
+            // console.log(str);d
+            taskBox.html(str);
+        }
+    </script>
+</body>
+
+</html>

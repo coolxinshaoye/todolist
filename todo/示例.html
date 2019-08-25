@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Todo List</title>
+    <link rel="stylesheet" href="assets/css/base.css">
+    <link rel="stylesheet" href="assets/css/index.css">
+    <script src="../js/jquery.min.js"></script>
+    <script src="../js/template-web.js"></script>
+</head>
+
+<body>
+    <section class="todoapp">
+        <header class="header">
+            <h1>todos</h1>
+            <input id="task" class="new-todo" placeholder="What needs to be done?" autofocus>
+        </header>
+        <!-- This section should be hidden by default and shown when there are todos -->
+        <section class="main">
+            <input class="toggle-all" type="checkbox">
+            <label for="toggle-all">Mark all as complete</label>
+            <ul class="todo-list" id="todo-list">
+                <!-- These are here just to show the structure of the list items -->
+                <!-- List items should get the class `editing` when editing and `completed` when marked as completed -->
+                <!-- <li class="completed">
+					<div class="view">
+						<input class="toggle" type="checkbox" checked>
+						<label>Taste JavaScript</label>
+						<button class="destroy"></button>
+					</div>
+					<input class="edit" value="Create a TodoMVC template">
+				</li>
+				<li>
+					<div class="view">
+						<input class="toggle" type="checkbox">
+						<label>Buy a unicorn</label>
+						<button class="destroy"></button>
+					</div>
+					<input class="edit" value="Rule the web">
+				</li> -->
+            </ul>
+        </section>
+        <!-- This footer should hidden by default and shown when there are todos -->
+        <footer class="footer">
+            <!-- This should be `0 items left` by default -->
+            <span class="todo-count"><strong>0</strong> item left</span>
+            <!-- Remove this if you don't implement routing -->
+            <ul class="filters">
+                <li>
+                    <a class="selected" href="#/">All</a>
+                </li>
+                <li>
+                    <a href="#/active">Active</a>
+                </li>
+                <li>
+                    <a href="#/completed">Completed</a>
+                </li>
+            </ul>
+            <!-- Hidden if no completed items are left ↓ -->
+            <button class="clear-completed">Clear completed</button>
+        </footer>
+    </section>
+    <script id="taskTpl" type="text/html">
+        {{each task}}
+        <li>
+            <div class="view">
+                <input class="toggle" type="checkbox">
+                <label>{{$value.title}}</label>
+                <button class="destroy"></button>
+            </div>
+            <input class="edit" value="Create a TodoMVC template">
+        </li>
+        {{/each}}
+    </script>
+    <script>
+        var taskInp = $('#task');
+
+        // 定义一个数组  基于数据驱动ui界面 vue 
+        var taskArr = [];
+
+        // 获取任务列表 
+        $.ajax({
+            type: 'GET',
+            url: '/todo/task',
+            success: function(res) {
+                // 将返回的res赋值给 taskArr 
+                taskArr = res;
+
+                render();
+
+            }
+        })
+
+        // 添加任务 
+        taskInp.on('keyup', function(e) {
+            // 如果我们 e.keyCode的值是13 
+            if (e.keyCode == 13) {
+                var taskVal = $(this).val().replace(/\s/g, '');
+                // 如果没有输入内容 我们就提示用户 
+                if (taskVal.trim().length == 0) {
+                    alert("请输入内容");
+                    return;
+                }
+                // 假设我们要添加的任务已经存在 那么我们就不要添加了 要么是一个对象 要么是一个undefined
+                var flag = taskArr.find(item => item.title == taskVal);
+                // 下面的这个if语句它会做自动类型 
+                if (flag) {
+                    alert("该任务已存在,请重新输入");
+                    return;
+                }
+
+                // 向服务器端发送请求 添加任务
+                $.ajax({
+                    type: 'post',
+                    url: '/todo/addTask',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        title: taskVal,
+                    }),
+
+                    success: function(response) {
+                        // 将任务添加到任务列表中
+                        taskArr.push(response);
+                        // 拼接字符串 将拼接好的字符串显示在页面中
+                        render();
+                        // 清空文本框中的内容
+                        taskInp.val('');
+
+                    }
+                })
+
+
+            }
+        });
+
+        // 将数据渲染到DOM中 
+        function render() {
+            // 调用template方法 
+            var str = template('taskTpl', {
+                task: taskArr
+            });
+            // console.log(str);
+            $('#todo-list').html(str);
+        }
+    </script>
+</body>
+
+</html>
