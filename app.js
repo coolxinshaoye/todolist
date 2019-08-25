@@ -9,7 +9,7 @@ const bodyParser = require('body-parser');
 // 创建web服务器
 const app = express();
 // 静态资源访问服务功能
-app.use(express.static(path.join(__dirname, 'todo')));
+app.use(express.static(path.join(__dirname, 't')));
 // 处理post请求参数
 app.use(bodyParser.json());
 // app.use(bodyParser.urlencoded({extended: false}));
